@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            Chrome JS Worker
+        </title>
+        <script>
+            var config = {
+                workaddr: "ws://127.0.0.1:9696",
+            }
+        </script>
+        <script>
+            const platform = "JS Chrome";
+
+            function sleep(ms) {
+                var unixtime_ms = new Date().getTime();
+                while(new Date().getTime() < unixtime_ms + ms) {}
+            }
+
+            function parsepacket(data) {
+                var packet = {
+                    type: 0,
+                    data: []
+                }
+                var tdata = new Uint8Array(data);
+                packet.type = tdata[1] * 255 + tdata[0];
+                packet.data = new Uint8Array(tdata.length - 2);
+                for (var i = packet.data.length - 1; i >= 0; i--) {
+                    packet.data[i] = tdata[i + 2];
+                }
+                return packet;
+            }
+
+            function dowork() {
+                for (i = 0; i < 100; i++)
+                {
+                    sendworkerinfo(1, i / 100.0);
+                    sleep(100);
+                }
+                window.state = statuses.none;
+                sendworkeroutput([]);
+            }
+
+            var statuses = {
+                none: 0,
+                working: 1,
+                error: 2
+            };
+
+            window.state = statuses.none;
+
+            function senddata(type, data) {
+                var packet = new Uint8Array(data.length + 2);
+                packet[0] = (type % 255);
+                packet[1] = (type / 255);
+                for (var i = data.length - 1; i >= 0; i--) {
+                    packet[i + 2] = data[i];
+                }
+                console.info(packet.buffer);
+                window.ws.send(packet.buffer);
+            }
+
+            function doubleToByteArray(number) {
+                var buffer = new ArrayBuffer(8);         
+                var longNum = new Float64Array(buffer);  
+
+                longNum[0] = number;
+
+                return Array.from(new Int8Array(buffer)); 
+            }
+
+            function sendworkerinfo(status, okpart) {
+                var data = [];
+                data.push(status);
+                var buf8 = doubleToByteArray(okpart);
+                for (var i = 0; i < buf8.length; i++) {
+                    data.push(buf8[i]);
+                }
+                data.push(0);
+                senddata(3, data);
+            }
+
+            function sendworkeroutput(data) {
+                senddata(2, data);
+            }
+
+            function startWS(addr) {
+                window.ws = new WebSocket(addr);
+                window.ws.binaryType = "arraybuffer";
+                window.ws.onopen = function() {
+                    console.info("connected");
+                    sendworkerinfo(statuses.none, 0);
+                };
+                window.ws.onmessage = function(msg) {
+                    var packetData = parsepacket(msg.data);
+                    console.info(packetData);
+                    switch (packetData.type) {
+                        case 1: //WorkInput
+                            if (window.state != 0)
+                            {
+                                window.ws.close();
+                                return;
+                            }
+                            window.state = statuses.working;
+                            window.data = packetData.data;
+                            setTimeout(dowork, 1);
+                            break;
+                    }
+                };
+                window.ws.onclose = function(evt) {
+                    startWS(addr);
+                    console.info("closed");
+                };
+                window.ws.onerror = function(evt) {
+                    console.info("error: " + evt.type)
+                };
+            }
+
+            function start() {
+                startWS(config.workaddr);
+            }
+
+            function stop() {
+                window.ws.close();
+            }
+            start();
+        </script>
+    </head>
+    <body>
+    </body>
+</html>

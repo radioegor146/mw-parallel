@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            CPanel
+        </title>
+        <script>
+            var config = {
+        		infoaddr: "ws://127.0.0.1:6969",
+        	}
+        </script>
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
+        <link crossorigin="anonymous" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" rel="stylesheet"/>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
+        </script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js">
+        </script>
+        <script>
+            function setState(state, text) {
+			    $('#msg')[0].className = "alert alert-" + state;
+			    $('#msg')[0].innerHTML = "<b>" + text + "</b>";
+			}
+
+			var statuses = ["Connecting", "None", "Sending task", "Working", "Stopped"];
+
+			function startWS(addr) {
+			    window.ws = new WebSocket(addr);
+			    window.ws.onopen = function() {
+					$('#connect-btn')[0].disabled = true;
+					$('#disconnect-btn')[0].disabled = false;
+                    $('#start-task-btn')[0].disabled = false;
+					setState("warning", "Loading");
+			    };
+			    window.ws.onmessage = function(msg) {
+			        var packetData = JSON.parse(msg.data);
+			        //console.info(packetData);
+			        switch (packetData.event) {
+			        	case 5:
+			        		$('#workers')[0].innerHTML = "Workers: " + packetData.worker_count;
+			        		$('#tasks')[0].innerHTML = "Tasks in queue: " + packetData.tasks_count;
+			        		break;
+			        	case 0:
+                            $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.worker_id + '"><td id="system-' + packetData.worker_id + '">' + packetData.worker_system + '</td><td id="state-' + packetData.worker_id + '">' + statuses[packetData.worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.worker_progress * 100) + '%" id="progress-' + packetData.worker_id + '"></div></div></td></tr>';
+			        		break;
+			        	case 1:
+			        		$('#worker-' + packetData.worker_id)[0].remove();
+			        		break;
+			        	case 2:
+			        		$('#state-' + packetData.worker_id)[0].innerHTML = statuses[packetData.worker_status];
+			        		$('#system-' + packetData.worker_id)[0].innerHTML = packetData.worker_system;
+			        		$('#progress-' + packetData.worker_id)[0].style.width = packetData.worker_progress * 100 + "%";
+			        		break;
+			        	case 6:
+                            setState("success", "Connected");
+			        		$('#workers-table')[0].innerHTML = '<tr><th width="10%">Platform</th><th width="10%">State</th><th></th></tr>';
+			        		for (var i = 0; i < packetData.workers.length; i++) {
+			        			$('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.workers[i].worker_id + '"><td id="system-' + packetData.workers[i].worker_id + '">' + packetData.workers[i].worker_system + '</td><td id="state-' + packetData.workers[i].worker_id + '">' + statuses[packetData.workers[i].worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.workers[i].worker_progress * 100) + '%" id="progress-' + packetData.workers[i].worker_id + '"></div></div></td></tr>';
+			        		}
+                            $('#panel')[0].hidden = false;
+			        }
+			    };
+			    window.ws.onclose = function(evt) {
+			        window.ws = null;
+					$('#connect-btn')[0].disabled = false;
+					$('#disconnect-btn')[0].disabled = true;
+                    $('#start-task-btn')[0].disabled = true;
+					$('#panel')[0].hidden = true;
+			        if (evt.code == 1000) 
+			            setState("info", "Not connected");
+			        else 
+			            setState("danger", "Connection error to " + config.infoaddr);
+			    };
+			    window.ws.onerror = function(evt) {
+			        if (window.ws.readyState == 1) 
+			        {
+			            setState("danger", "WebSocket error: " + evt.type);
+						$('#connect-btn')[0].disabled = false;
+						$('#disconnect-btn')[0].disabled = true;
+                        $('#start-task-btn')[0].disabled = true;
+						$('#panel')[0].hidden = true;
+			        }
+			    };
+			}
+
+			function start() {
+			    setState("warning", "Connecting...");
+			    startWS(config.infoaddr);
+			}
+
+			function stop() {
+				window.ws.close();
+			}
+
+            function task() {
+                window.ws.send("data");
+            }
+
+			window.workers = 0;
+        </script>
+        <style type="text/css">
+            .progress-bar {
+                -webkit-transition: none;
+                -moz-transition: none;
+                -ms-transition: none;
+                -o-transition: none;
+                transition: none;
+            }​
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <h1>
+                    CPanel
+                </h1>
+                <hr/>
+                <button class="btn btn-lg btn-success" id="connect-btn" onclick="start()">
+                    Connect
+                </button>
+                <button class="btn btn-lg btn-danger" disabled="" id="disconnect-btn" onclick="stop()">
+                    Disconnect
+                </button>
+                <div class="alert alert-info" id="msg" style="display: inline">
+                    <b>
+                        Not connected
+                    </b>
+                </div>
+                <button class="btn btn-lg btn-primary" id="start-task-btn" onclick="task()" style="display: inline-block; float: right" disabled="">
+                    Start task
+                </button>
+                <hr/>
+            </div>
+            <div class="row" hidden="" id="panel">
+                <h2 id="workers" style="display: inline-block">
+                    Workers: 0
+                </h2>
+                <h2 id="tasks" style="display: inline-block; float: right">
+                    Tasks in queue: 0
+                </h2>
+                <hr/>
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        Workers
+                    </div>
+                    <div class="panel-body">
+                        <table class="table table-hover" id="workers-table">
+                            <tr>
+                                <th width="10%">
+                                    Platform
+                                </th>
+                                <th width="10%">
+                                    State
+                                </th>
+                                <th>
+                                </th>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
