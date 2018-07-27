@@ -43,7 +43,7 @@ namespace Master
                     return;
                 if (!keepAliveSw.IsRunning)
                     keepAliveSw.Start();
-                if (keepAliveSw.ElapsedMilliseconds > 500)
+                if (keepAliveSw.ElapsedMilliseconds > 2000)
                 { 
                     handler.Logger.Log($"Client {session.SessionID} is disconnected with idle of {keepAliveSw.ElapsedMilliseconds}");
                     keepAliveSw.Stop();
@@ -58,7 +58,7 @@ namespace Master
                     Data = new byte[0],
                     Type = PacketType.Nop
                 });
-            }, null, 0, 250);
+            }, null, 0, 1000);
         }
 
         public void OnMessage(byte[] data)

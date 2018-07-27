@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using Newtonsoft.Json.Linq;
 
 namespace Worker
 {
@@ -16,6 +17,11 @@ namespace Worker
                 Thread.Sleep(100);
             }
             return new byte[0];
+        }
+
+        public void Setup(JObject config)
+        {
+
         }
     }
 }

@@ -40,7 +40,20 @@ namespace Worker
             logger.Debug("Started working");
             byte[] input = (byte[])inputObj;
             //CHANGE LATER ------->     \/
-            IMainVoid mainVoid = new MainVoid();
+            IMainVoid mainVoid;
+            try
+            {
+                Logger.Log($"Loading class {config["mainvoid"].Value<string>()}");
+                object controllerInstance = Activator.CreateInstance(Type.GetType(config["mainvoid"].Value<string>()));
+                mainVoid = (IMainVoid)controllerInstance;
+                Logger.Log($"Class {config["mainvoid"].Value<string>()} loaded successfully");
+            }
+            catch (Exception e)
+            {
+                Logger.Log($"Can't load class {config["mainvoid"].Value<string>()}; Exception: {e}; Loading default class");
+                mainVoid = new MainVoid();
+            }
+            mainVoid.Setup(config);
             //CHANGE LATER ------->     /\
             try
             {
@@ -101,7 +114,7 @@ namespace Worker
                     return;
                 if (!keepAliveSw.IsRunning)
                     keepAliveSw.Start();
-                if (keepAliveSw.ElapsedMilliseconds > 500)
+                if (keepAliveSw.ElapsedMilliseconds > 2000)
                 {
                     clientSocket.Close();
                     Logger.Log("Disconnected because of timeout");
@@ -113,7 +126,7 @@ namespace Worker
                     Data = new byte[0],
                     Type = PacketType.Nop
                 }.GetBytes());
-            }, null, 0, 250);
+            }, null, 0, 1000);
         }
 
         private void ClientSocket_OnClose(object sender, CloseEventArgs e)
