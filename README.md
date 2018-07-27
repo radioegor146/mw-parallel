@@ -33,7 +33,7 @@ All you need is just source files
     3. Make config file for all Workers
         ```JSON
         {
-            "wsaddr": "ws://192.168.43.247:9696",
+            "wsaddr": "ws://127.0.0.1:9696",
             "password": "default",
             "mainvoid": "Worker.MainVoid"
         }
