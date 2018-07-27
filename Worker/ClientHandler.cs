@@ -37,6 +37,8 @@ namespace Worker
 
         private void DoWork(object inputObj)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
             logger.Debug("Started working");
             byte[] input = (byte[])inputObj;
             //CHANGE LATER ------->     \/
@@ -57,14 +59,19 @@ namespace Worker
             //CHANGE LATER ------->     /\
             try
             {
-                clientSocket.Send(new SimplePacket()
+                byte[] dataBytes = new SimplePacket()
                 {
                     Type = PacketType.WorkOutput,
                     Data = mainVoid.DoIt(input, (x) =>
                     {
                         try
                         {
+                            if (sw.ElapsedMilliseconds < 750)
+                                return;
+                            sw.Restart();
                             if (x < 0 || x > 1)
+                                return;
+                            if (!clientSocket.IsAlive)
                                 return;
                             clientSocket.Send(new Packets.WorkerInfo()
                             {
@@ -78,7 +85,10 @@ namespace Worker
 
                         }
                     })
-                }.GetBytes());
+                }.GetBytes();
+                Status = Packets.WorkerStatus.None;
+                if (clientSocket.IsAlive)
+                    clientSocket.Send(dataBytes);
             }
             catch (Exception e)
             {
@@ -100,33 +110,57 @@ namespace Worker
         private void SetupSocket()
         {
             clientSocket = new WebSocket(config["wsaddr"].Value<string>());
+            clientSocket.WaitTime = TimeSpan.FromSeconds(5);
             clientSocket.OnMessage += ClientSocket_OnMessage;
             clientSocket.OnClose += ClientSocket_OnClose;
             clientSocket.OnOpen += ClientSocket_OnOpen;
+            clientSocket.OnError += ClientSocket_OnError;
         }
+
+        private bool previousState = false;
 
         private void ClientSocket_OnOpen(object sender, EventArgs e)
         {
             keepAliveSw = new Stopwatch();
             keepAliveTimer = new Timer(x =>
             {
-                if (!clientSocket.IsAlive)
-                    return;
-                if (!keepAliveSw.IsRunning)
-                    keepAliveSw.Start();
-                if (keepAliveSw.ElapsedMilliseconds > 2000)
+                bool nowState = clientSocket.IsAlive;
+                if (!nowState && previousState)
                 {
-                    clientSocket.Close();
                     Logger.Log("Disconnected because of timeout");
+                    keepAliveSw.Stop();
+                    clientSocket.Close();
                     keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    return;
                 }
-                clientSocket.Send(new SimplePacket()
+                if (nowState)
                 {
-                    Data = new byte[0],
-                    Type = PacketType.Nop
-                }.GetBytes());
-            }, null, 0, 1000);
+                    lock (keepAliveSw)
+                    {
+                        if (!keepAliveSw.IsRunning)
+                            keepAliveSw.Start();
+                        if (keepAliveSw.ElapsedMilliseconds > 5000)
+                        {
+                            Logger.Log("Disconnected because of timeout");
+                            keepAliveSw.Stop();
+                            clientSocket.Close();
+                            keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                            return;
+                        }
+                    }
+                    if (clientSocket.IsAlive)
+                        clientSocket.Send(new SimplePacket()
+                        {
+                            Data = new byte[0],
+                            Type = PacketType.Nop
+                        }.GetBytes());
+                }
+                previousState = nowState;
+            }, null, 0, 500);
+        }
+
+        private void ClientSocket_OnError(object sender, WebSocketSharp.ErrorEventArgs e)
+        {
+            
         }
 
         private void ClientSocket_OnClose(object sender, CloseEventArgs e)
@@ -145,6 +179,9 @@ namespace Worker
             if (!e.IsBinary)
                 return;
             SimplePacket packet = StreamUtils.ReadPacket(e.RawData);
+            lock (keepAliveSw)
+                if (keepAliveSw.IsRunning)
+                    keepAliveSw.Restart();
             switch (packet.Type)
             {
                 case PacketType.WorkInput:
@@ -159,6 +196,7 @@ namespace Worker
                         Status = Packets.WorkerStatus.Working,
                         System = Platform
                     }.GetPacket());
+                    Status = Packets.WorkerStatus.Working;
                     StartProcessing(packet.Data);
                     break;
                 case PacketType.WorkerAuthRequest:
@@ -171,12 +209,9 @@ namespace Worker
                     clientSocket.Send(new Packets.WorkerInfo()
                     {
                         OkPart = 0,
-                        Status = Packets.WorkerStatus.None,
+                        Status = Status,
                         System = Platform
                     }.GetPacket());
-                    break;
-                case PacketType.Nop:
-                    keepAliveSw.Reset();
                     break;
             }
             return;

@@ -41,17 +41,20 @@ namespace Master
             {
                 if (!session.Connected)
                     return;
-                if (!keepAliveSw.IsRunning)
-                    keepAliveSw.Start();
-                if (keepAliveSw.ElapsedMilliseconds > 2000)
-                { 
-                    handler.Logger.Log($"Client {session.SessionID} is disconnected with idle of {keepAliveSw.ElapsedMilliseconds}");
-                    keepAliveSw.Stop();
-                    handler.RemoveClient(session.SessionID);
-                    session.Close();
-                    status = ClientWorkerStatus.None;
-                    keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    return;
+                lock (keepAliveSw)
+                {
+                    if (!keepAliveSw.IsRunning)
+                        keepAliveSw.Start();
+                    if (keepAliveSw.ElapsedMilliseconds > 5000)
+                    {
+                        handler.Logger.Log($"Client {session.SessionID} is disconnected with idle of {keepAliveSw.ElapsedMilliseconds}");
+                        keepAliveSw.Stop();
+                        handler.RemoveClient(session.SessionID);
+                        session.Close();
+                        status = ClientWorkerStatus.None;
+                        keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                        return;
+                    }
                 }
                 SendPacket(new SimplePacket()
                 {
@@ -64,6 +67,9 @@ namespace Master
         public void OnMessage(byte[] data)
         {
             SimplePacket packet = StreamUtils.ReadPacket(data);
+            lock (keepAliveSw)
+                if (keepAliveSw.IsRunning)
+                    keepAliveSw.Restart();
             switch (packet.Type)
             {
                 case PacketType.WorkerInfo:
@@ -109,10 +115,6 @@ namespace Master
                         return;
                     }
                     status = ClientWorkerStatus.None;
-                    break;
-
-                case PacketType.Nop:
-                    keepAliveSw.Reset();
                     break;
             }
         }
