@@ -9,6 +9,8 @@ namespace Master
     class Task
     {
         public int Id;
+        public string WorkerId;
         public byte[] InputData;
+        public byte[] OutputData;
     }
 }

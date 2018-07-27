@@ -1,5 +1,13 @@
 {
     "wsport": 6969,
     "mainport": 9696,
-    "password": "default"
+    "password": "default",
+    "datacontroller": "Master.DataControllers.SimpleDataController",
+    "defaultpermission": 5,
+    "controllercfg": {
+        "accounts": [{
+            "password": "default",
+            "permissions": 5
+        }]
+    }
 }

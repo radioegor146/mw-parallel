@@ -10,20 +10,16 @@ namespace Master.WebSocketPackets
 {
     enum EventType
     {
-        [EnumMember(Value = "worker_connected")]
         WorkerConnected,
-        [EnumMember(Value = "worker_disconnected")]
         WorkerDisconnected,
-        [EnumMember(Value = "worker_statuschange")]
         WorkerStatusChange,
-        [EnumMember(Value = "worker_error")]
         WorkerError,
-        [EnumMember(Value = "worker_taskready")]
         WorkerTaskReady,
-        [EnumMember(Value = "general_info")]
         GeneralInfo,
-        [EnumMember(Value = "start_workers")]
-        StartWorker
+        StartWorker,
+        CPanelInfo,
+        CPanelTaskResult,
+        RSAKp
     }
 
     [Serializable]

@@ -23,9 +23,32 @@ namespace Worker
         public Logger(string filename, LogLevel level = LogLevel.Log)
         {
             this.level = level;
+            return;
             if (level == LogLevel.None)
                 return;
-            fileStream = new FileStream(filename, FileMode.Create);
+            int logid = 0;
+            try
+            {
+                fileStream = new FileStream(filename, FileMode.Create);
+            }
+            catch
+            {
+                Log($"Can't create logfile \"{filename}\"");
+                bool success = false;
+                while (!success)
+                {
+                    try
+                    {
+                        logid++;
+                        fileStream = new FileStream(filename + "-" + logid, FileMode.Create);
+                        success = true;
+                    }
+                    catch
+                    {
+                        Log($"Can't create logfile \"{filename + "-" + logid}\"");
+                    }
+                }
+            }
             mainWriter = new StreamWriter(fileStream);
             mainWriter.AutoFlush = true;
         }
@@ -33,21 +56,23 @@ namespace Worker
         public void Log(string text)
         {
             if (level >= LogLevel.Log)
-                lock (mainWriter)
-                {
-                    mainWriter.WriteLine($"[{DateTime.Now}] [LOG]: {text}");
-                    Console.WriteLine($"[{DateTime.Now}] [LOG]: {text}");
-                }
+            {
+                if (mainWriter != null)
+                    lock (mainWriter)
+                        mainWriter?.WriteLine($"[{DateTime.Now}] [LOG]: {text}");
+                Console.WriteLine($"[{DateTime.Now}] [LOG]: {text}");
+            }
         }
 
         public void Debug(string text)
         {
             if (level >= LogLevel.Debug)
-                lock (mainWriter)
-                {
-                    mainWriter.WriteLine($"[{DateTime.Now}] [DEBUG]: {text}");
-                    Console.WriteLine($"[{DateTime.Now}] [DEBUG]: {text}");
-                }
+            {
+                if (mainWriter != null)
+                    lock (mainWriter)
+                        mainWriter?.WriteLine($"[{DateTime.Now}] [DEBUG]: {text}");
+                Console.WriteLine($"[{DateTime.Now}] [DEBUG]: {text}");
+            }
         }
 
         public void SetLogLevel(LogLevel level)

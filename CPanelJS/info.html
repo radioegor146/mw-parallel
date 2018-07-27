@@ -4,10 +4,11 @@
         <title>
             CPanel
         </title>
+        <meta charset="utf-8"/>
         <script>
             var config = {
-        		infoaddr: "ws://127.0.0.1:6969",
-        	}
+                infoaddr: "ws://185.63.188.9:6969",
+            }
         </script>
         <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
         <link crossorigin="anonymous" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" rel="stylesheet"/>
@@ -17,85 +18,186 @@
         </script>
         <script>
             function setState(state, text) {
-			    $('#msg')[0].className = "alert alert-" + state;
-			    $('#msg')[0].innerHTML = "<b>" + text + "</b>";
-			}
-
-			var statuses = ["Connecting", "None", "Sending task", "Working", "Stopped"];
-
-			function startWS(addr) {
-			    window.ws = new WebSocket(addr);
-			    window.ws.onopen = function() {
-					$('#connect-btn')[0].disabled = true;
-					$('#disconnect-btn')[0].disabled = false;
-                    $('#start-task-btn')[0].disabled = false;
-					setState("warning", "Loading");
-			    };
-			    window.ws.onmessage = function(msg) {
-			        var packetData = JSON.parse(msg.data);
-			        //console.info(packetData);
-			        switch (packetData.event) {
-			        	case 5:
-			        		$('#workers')[0].innerHTML = "Workers: " + packetData.worker_count;
-			        		$('#tasks')[0].innerHTML = "Tasks in queue: " + packetData.tasks_count;
-			        		break;
-			        	case 0:
-                            $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.worker_id + '"><td id="system-' + packetData.worker_id + '">' + packetData.worker_system + '</td><td id="state-' + packetData.worker_id + '">' + statuses[packetData.worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.worker_progress * 100) + '%" id="progress-' + packetData.worker_id + '"></div></div></td></tr>';
-			        		break;
-			        	case 1:
-			        		$('#worker-' + packetData.worker_id)[0].remove();
-			        		break;
-			        	case 2:
-			        		$('#state-' + packetData.worker_id)[0].innerHTML = statuses[packetData.worker_status];
-			        		$('#system-' + packetData.worker_id)[0].innerHTML = packetData.worker_system;
-			        		$('#progress-' + packetData.worker_id)[0].style.width = packetData.worker_progress * 100 + "%";
-			        		break;
-			        	case 6:
-                            setState("success", "Connected");
-			        		$('#workers-table')[0].innerHTML = '<tr><th width="10%">Platform</th><th width="10%">State</th><th></th></tr>';
-			        		for (var i = 0; i < packetData.workers.length; i++) {
-			        			$('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.workers[i].worker_id + '"><td id="system-' + packetData.workers[i].worker_id + '">' + packetData.workers[i].worker_system + '</td><td id="state-' + packetData.workers[i].worker_id + '">' + statuses[packetData.workers[i].worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.workers[i].worker_progress * 100) + '%" id="progress-' + packetData.workers[i].worker_id + '"></div></div></td></tr>';
-			        		}
-                            $('#panel')[0].hidden = false;
-			        }
-			    };
-			    window.ws.onclose = function(evt) {
-			        window.ws = null;
-					$('#connect-btn')[0].disabled = false;
-					$('#disconnect-btn')[0].disabled = true;
-                    $('#start-task-btn')[0].disabled = true;
-					$('#panel')[0].hidden = true;
-			        if (evt.code == 1000) 
-			            setState("info", "Not connected");
-			        else 
-			            setState("danger", "Connection error to " + config.infoaddr);
-			    };
-			    window.ws.onerror = function(evt) {
-			        if (window.ws.readyState == 1) 
-			        {
-			            setState("danger", "WebSocket error: " + evt.type);
-						$('#connect-btn')[0].disabled = false;
-						$('#disconnect-btn')[0].disabled = true;
-                        $('#start-task-btn')[0].disabled = true;
-						$('#panel')[0].hidden = true;
-			        }
-			    };
-			}
-
-			function start() {
-			    setState("warning", "Connecting...");
-			    startWS(config.infoaddr);
-			}
-
-			function stop() {
-				window.ws.close();
-			}
-
-            function task() {
-                window.ws.send("data");
+                $('#msg')[0].className = "alert alert-" + state;
+                $('#msg')[0].innerHTML = "<b>" + text + "</b>";
             }
 
-			window.workers = 0;
+            var statuses = ["Connecting", "None", "Sending task", "Working", "Stopped"];
+
+            function base64toHEX(base64) {
+                var raw = atob(base64);
+                var HEX = '';
+                for (i = 0; i < raw.length; i++) {
+                    var _hex = raw.charCodeAt(i).toString(16)
+                    HEX += (_hex.length == 2 ? _hex : '0' + _hex) + ' ';
+                }
+                return HEX;
+            }
+
+            function base64toCarray(base64) {
+                var raw = atob(base64);
+                var HEX = 'char data[] = {';
+                for (i = 0; i < raw.length; i++) {
+                    if (i % 8 == 0)
+                        HEX += '\n\t';
+                    var _hex = raw.charCodeAt(i).toString(16)
+                    HEX += '0x' + (_hex.length == 2 ? _hex : '0' + _hex) + (i == raw.length - 1 ? '\n' : ', ');
+                }
+                return HEX + '};';
+            }
+
+            function showinput(data) {
+                var tdata = data.path[2].dataset;
+                $('#data-title')[0].innerHTML = "Input for task #" + tdata.id;
+                $('#utf-8-pre')[0].innerHTML = atob(tdata.input);
+                $('#hex-pre')[0].innerHTML = base64toHEX(tdata.input);
+                $('#c-array-pre')[0].innerHTML = base64toCarray(tdata.input);
+                $('#data-modal').modal('show');
+            }
+
+            function showoutput(data) {
+                var tdata = data.path[2].dataset;
+                $('#data-title')[0].innerHTML = "Output for task #" + tdata.id;
+                $('#utf-8-pre')[0].innerHTML = atob(tdata.output);
+                $('#hex-pre')[0].innerHTML = base64toHEX(tdata.output);
+                $('#c-array-pre')[0].innerHTML = base64toCarray(tdata.output);
+                $('#data-modal').modal('show');
+            }
+
+            function generateTaskHtml(task) {
+                return '<tr id="task-' + task.task_id + '" data-input="' + task.input_data + '" data-output="' + task.output_data + '" data-id="' + task.task_id + '"><td>' + task.task_id + '</td><td>' + (task.input_data != null ? ('<button class="btn btn-xs btn-success" style="width:100%" onclick="showinput(event)">Input size: ' + atob(task.input_data).length + '</button>') : "") + '</td><td>' + (task.output_data != null ? ('<button class="btn btn-xs btn-danger" style="width:100%" onclick="showoutput(event)">Output size: ' + atob(task.output_data).length + '</button>') : "") + '</td></tr>';
+            }
+
+            function startWS(addr) {
+                window.ws = new WebSocket(addr);
+                window.ws.onopen = function() {
+                    $('#connect-btn')[0].disabled = true;
+                    $('#disconnect-btn')[0].disabled = false;
+                    $('#start-task-btn')[0].disabled = false;
+                    setState("warning", "Loading");
+                };
+                window.ws.onmessage = function(msg) {
+                    var packetData = JSON.parse(msg.data);
+                    switch (packetData.event) {
+                        case 5:
+                            $('#workers')[0].innerHTML = "Workers: " + packetData.worker_count;
+                            $('#tasks')[0].innerHTML = "Tasks in queue: " + packetData.tasks_count;
+                            break;
+                        case 0:
+                            var tid = '-';
+                            if (packetData.current_task != null)
+                                tid = packetData.current_task.task_id;
+                            $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.worker_id + '"><td id="system-' + packetData.worker_id + '">' + packetData.worker_system + '</td><td id="state-' + packetData.worker_id + '">' + statuses[packetData.worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.worker_progress * 100) + '%" id="progress-' + packetData.worker_id + '">' + (packetData.worker_status == 3 ? (Math.round(packetData.worker_progress * 100) + '%') : "") + '</div></div></td><td id="tid-' + packetData.worker_id + '">' + tid + '</td></tr>';
+                            break;
+                        case 1:
+                            $('#worker-' + packetData.worker_id)[0].remove();
+                            break;
+                        case 2:
+                            $('#state-' + packetData.worker_id)[0].innerHTML = statuses[packetData.worker_status];
+                            $('#system-' + packetData.worker_id)[0].innerHTML = packetData.worker_system;
+                            $('#progress-' + packetData.worker_id)[0].style.width = packetData.worker_progress * 100 + "%";
+                            $('#progress-' + packetData.worker_id)[0].innerHTML = (packetData.worker_status == 3 ? (Math.round(packetData.worker_progress * 100) + '%') : "");
+                            break;
+                        case 6:
+                            setState("success", "Connected");
+                            $('#workers-table')[0].innerHTML = '';
+                            for (var i = 0; i < packetData.workers.length; i++) {
+                                var tid = '-';
+                                if (packetData.workers[i].current_task != null)
+                                    tid = packetData.workers[i].current_task.task_id;
+                                $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.workers[i].worker_id + '"><td id="system-' + packetData.workers[i].worker_id + '">' + packetData.workers[i].worker_system + '</td><td id="state-' + packetData.workers[i].worker_id + '">' + statuses[packetData.workers[i].worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.workers[i].worker_progress * 100) + '%" id="progress-' + packetData.workers[i].worker_id + '">' + (packetData.workers[i].worker_status == 3 ? (Math.round(packetData.workers[i].worker_progress * 100) + '%') : "") + '</div></div></td><td id="tid-' + packetData.workers[i].worker_id + '">' + tid + '</td></tr>';
+                            }
+                            $('#tasks-in-queue-table')[0].innerHTML = '';
+                            for (var i = 0; i < packetData.tasks_in_queue.length; i++) {
+                                $('#tasks-in-queue-table')[0].innerHTML += generateTaskHtml(packetData.tasks_in_queue[i]);
+                            }
+                            $('#ready-tasks-table')[0].innerHTML = '';
+                            for (var i = packetData.tasks_ready.length - 1; i >= 0; i--) {
+                                $('#ready-tasks-table')[0].innerHTML += generateTaskHtml(packetData.tasks_ready[i]);
+                            }
+                            $('#panel')[0].hidden = false;
+                            $('#tasks-list')[0].hidden = false;
+                            break;
+                        case 8:
+                            switch (packetData.event_type) {
+                                case 0:
+                                    $('#tasks-in-queue-table')[0].innerHTML += generateTaskHtml(packetData.task);
+                                    break;
+                                case 1:
+                                    $('#tasks-in-queue-table')[0].innerHTML = generateTaskHtml(packetData.task) + $('#tasks-in-queue-table')[0].innerHTML;
+                                    break;
+                                case 2:
+                                    if ($('#task-' + packetData.task.task_id)[0] != undefined)
+                                        $('#task-' + packetData.task.task_id)[0].remove();
+                                    $('#tid-' + packetData.task.worker_id)[0].innerHTML = packetData.task.task_id;
+                                    break;
+                                case 3:
+                                    if ($('#task-' + packetData.task.task_id)[0] != undefined)
+                                        $('#task-' + packetData.task.task_id)[0].remove();
+                                    $('#ready-tasks-table')[0].innerHTML = generateTaskHtml(packetData.task) + $('#ready-tasks-table')[0].innerHTML;
+                                    var notification = new Notification('Notification title', {
+                                        icon: 'https://image.freepik.com/free-icon/tasks_318-30808.jpg',
+                                        body: "Task #" + packetData.task.task_id + " is ready!",
+                                    });
+                                    $('#tid-' + packetData.task.worker_id)[0].innerHTML = '-';
+                                    break;
+                            }
+                            break;
+                    }
+                };
+                window.ws.onclose = function(evt) {
+                    window.ws = null;
+                    $('#connect-btn')[0].disabled = false;
+                    $('#disconnect-btn')[0].disabled = true;
+                    $('#start-task-btn')[0].disabled = true;
+                    $('#panel')[0].hidden = true;
+                    $('#tasks-list')[0].hidden = true;
+                    if (evt.code == 1000) 
+                        setState("info", "Not connected");
+                    else 
+                        setState("danger", "Connection error to " + config.infoaddr);
+                };
+                window.ws.onerror = function(evt) {
+                    if (window.ws.readyState == 1) 
+                    {
+                        setState("danger", "WebSocket error: " + evt.type);
+                        $('#connect-btn')[0].disabled = false;
+                        $('#disconnect-btn')[0].disabled = true;
+                        $('#start-task-btn')[0].disabled = true;
+                        $('#panel')[0].hidden = true;
+                    }
+                };
+            }
+
+            function start() {
+                setState("warning", "Connecting...");
+                startWS(config.infoaddr);
+            }
+
+            function stop() {
+                window.ws.close();
+            }
+
+            function task() {
+                window.ws.send(JSON.stringify({
+                    type: 2, 
+                    data: btoa(window.prompt("Enter data for input of task", ""))
+                }));
+            }
+
+            Notification.requestPermission().then(function(result) {
+                if (result === 'denied') {
+                    console.log('Permission wasn\'t granted. Allow a retry.');
+                    return;
+                }
+                if (result === 'default') {
+                    console.log('The permission request was dismissed.');
+                    return;
+                }
+                console.log('Ok');
+            });
+
+            window.workers = 0;
         </script>
         <style type="text/css">
             .progress-bar {
@@ -105,6 +207,11 @@
                 -o-transition: none;
                 transition: none;
             }​
+
+            .tasks-column {
+                width: 50%;
+                display: inline-table;   
+            }
         </style>
     </head>
     <body>
@@ -125,7 +232,7 @@
                         Not connected
                     </b>
                 </div>
-                <button class="btn btn-lg btn-primary" id="start-task-btn" onclick="task()" style="display: inline-block; float: right" disabled="">
+                <button class="btn btn-lg btn-primary" disabled="" id="start-task-btn" onclick="task()" style="display: inline-block; float: right">
                     Start task
                 </button>
                 <hr/>
@@ -143,18 +250,130 @@
                         Workers
                     </div>
                     <div class="panel-body">
-                        <table class="table table-hover" id="workers-table">
-                            <tr>
-                                <th width="10%">
-                                    Platform
-                                </th>
-                                <th width="10%">
-                                    State
-                                </th>
-                                <th>
-                                </th>
-                            </tr>
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="10%">
+                                        Platform
+                                    </th>
+                                    <th width="10%">
+                                        State
+                                    </th>
+                                    <th>
+                                    </th>
+                                    <th width="10%">
+                                        Task ID
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="workers-table">
+                            </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+            <div class="row" hidden="" id="tasks-list">
+                <div style="display:inline-flex;width:50%">
+                    <div class="panel panel-default" style="width:100%">
+                        <div class="panel-heading">
+                            Tasks in queue
+                        </div>
+                        <div class="panel-body">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="20%">
+                                            ID
+                                        </th>
+                                        <th width="40%">
+                                            Input
+                                        </th>
+                                        <th width="40%">
+                                            Output
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasks-in-queue-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:inline-flex;width:49%">
+                    <div class="panel panel-default" style="width:100%">
+                        <div class="panel-heading">
+                            Ready tasks
+                        </div>
+                        <div class="panel-body">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="20%">
+                                            ID
+                                        </th>
+                                        <th width="40%">
+                                            Input
+                                        </th>
+                                        <th width="40%">
+                                            Output
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ready-tasks-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="data-modal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button class="close" data-dismiss="modal" type="button">
+                            ×
+                        </button>
+                        <h4 class="modal-title" id="data-title">
+                        </h4>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="nav nav-tabs">
+                            <li class="active">
+                                <a data-toggle="tab" href="#utf-8-view">
+                                    UTF-8
+                                </a>
+                            </li>
+                            <li>
+                                <a data-toggle="tab" href="#hex-view">
+                                    Hex
+                                </a>
+                            </li>
+                            <li>
+                                <a data-toggle="tab" href="#c-array-view">
+                                    C Array
+                                </a>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane active" id="utf-8-view">
+                                <pre id="utf-8-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd
+                                </pre>
+                            </div>
+                            <div class="tab-pane" id="hex-view">
+                                <pre id="hex-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd1
+                                </pre>
+                            </div>
+                            <div class="tab-pane" id="c-array-view">
+                                <pre id="c-array-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd2
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-default" data-dismiss="modal" type="button">
+                            Close
+                        </button>
                     </div>
                 </div>
             </div>

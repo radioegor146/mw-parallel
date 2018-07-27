@@ -8,12 +8,15 @@ using System.IO;
 using WebSocketSharp;
 using Newtonsoft.Json.Linq;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace Worker
 {
     class ClientHandler
     {
         private WebSocket clientSocket;
+        private Timer keepAliveTimer;
+        private Stopwatch keepAliveSw;
 
         private Logger logger;
         public Logger Logger
@@ -39,19 +42,39 @@ namespace Worker
             //CHANGE LATER ------->     \/
             IMainVoid mainVoid = new MainVoid();
             //CHANGE LATER ------->     /\
-            clientSocket.Send(new SimplePacket()
+            try
             {
-                Type = PacketType.WorkOutput,
-                Data = mainVoid.DoIt(input, (x) =>
+                clientSocket.Send(new SimplePacket()
                 {
-                    clientSocket.Send(new Packets.WorkerInfo()
+                    Type = PacketType.WorkOutput,
+                    Data = mainVoid.DoIt(input, (x) =>
                     {
-                        OkPart = x,
-                        Status = Packets.WorkerStatus.Working,
-                        System = Platform
-                    }.GetPacket());
-                })
-            }.GetBytes());
+                        try
+                        {
+                            if (x < 0 || x > 1)
+                                return;
+                            clientSocket.Send(new Packets.WorkerInfo()
+                            {
+                                OkPart = x,
+                                Status = Packets.WorkerStatus.Working,
+                                System = Platform
+                            }.GetPacket());
+                        }
+                        catch
+                        {
+
+                        }
+                    })
+                }.GetBytes());
+            }
+            catch (Exception e)
+            {
+                clientSocket.Send(new SimplePacket()
+                {
+                    Type = PacketType.WorkOutput,
+                    Data = Encoding.UTF8.GetBytes($"Exception: {e}")
+                }.GetBytes());
+            }
             logger.Debug("End working");
         }
 
@@ -71,7 +94,26 @@ namespace Worker
 
         private void ClientSocket_OnOpen(object sender, EventArgs e)
         {
-
+            keepAliveSw = new Stopwatch();
+            keepAliveTimer = new Timer(x =>
+            {
+                if (!clientSocket.IsAlive)
+                    return;
+                if (!keepAliveSw.IsRunning)
+                    keepAliveSw.Start();
+                if (keepAliveSw.ElapsedMilliseconds > 500)
+                {
+                    clientSocket.Close();
+                    Logger.Log("Disconnected because of timeout");
+                    keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    return;
+                }
+                clientSocket.Send(new SimplePacket()
+                {
+                    Data = new byte[0],
+                    Type = PacketType.Nop
+                }.GetBytes());
+            }, null, 0, 250);
         }
 
         private void ClientSocket_OnClose(object sender, CloseEventArgs e)
@@ -113,7 +155,15 @@ namespace Worker
                         Password = config["password"].Value<string>(),
                         RandomBytes = packet.Data
                     }.GetPacket());
-
+                    clientSocket.Send(new Packets.WorkerInfo()
+                    {
+                        OkPart = 0,
+                        Status = Packets.WorkerStatus.None,
+                        System = Platform
+                    }.GetPacket());
+                    break;
+                case PacketType.Nop:
+                    keepAliveSw.Reset();
                     break;
             }
             return;
@@ -124,7 +174,7 @@ namespace Worker
         private void StartProcessing(byte[] data)
         {
             workerThread = new Thread(DoWork);
-            workerThread.Start();
+            workerThread.Start(data);
         }
 
         public void Start()

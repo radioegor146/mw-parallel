@@ -14,6 +14,8 @@ namespace Worker
 
         public byte[] GetBytes()
         {
+            if (Data.Length > 65536)
+                Data = new byte[4] { 0xDE, 0xAD, 0xBE, 0xEF };
             MemoryStream memoryStream = new MemoryStream();
             StreamUtils.WritePacket(memoryStream, this);
             return memoryStream.ToArray();

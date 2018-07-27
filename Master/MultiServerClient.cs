@@ -21,6 +21,8 @@ namespace Master
         private MasterHandler handler;
         private WebSocketSession session;
         private Timer timeoutTimer;
+        private Timer keepAliveTimer;
+        private Stopwatch keepAliveSw;
 
         public byte[] RandomBytes;
 
@@ -34,12 +36,34 @@ namespace Master
                 if (status == ClientWorkerStatus.Connecting)
                     session.Close(SuperSocket.SocketBase.CloseReason.TimeOut);
             }, null, 2000, Timeout.Infinite);
+            keepAliveSw = new Stopwatch();
+            keepAliveTimer = new Timer(x =>
+            {
+                if (!session.Connected)
+                    return;
+                if (!keepAliveSw.IsRunning)
+                    keepAliveSw.Start();
+                if (keepAliveSw.ElapsedMilliseconds > 500)
+                { 
+                    handler.Logger.Log($"Client {session.SessionID} is disconnected with idle of {keepAliveSw.ElapsedMilliseconds}");
+                    keepAliveSw.Stop();
+                    handler.RemoveClient(session.SessionID);
+                    session.Close();
+                    status = ClientWorkerStatus.None;
+                    keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    return;
+                }
+                SendPacket(new SimplePacket()
+                {
+                    Data = new byte[0],
+                    Type = PacketType.Nop
+                });
+            }, null, 0, 250);
         }
 
         public void OnMessage(byte[] data)
         {
             SimplePacket packet = StreamUtils.ReadPacket(data);
-            handler.Logger.Debug("Packet type: " + packet.Type);
             switch (packet.Type)
             {
                 case PacketType.WorkerInfo:
@@ -85,6 +109,10 @@ namespace Master
                         return;
                     }
                     status = ClientWorkerStatus.None;
+                    break;
+
+                case PacketType.Nop:
+                    keepAliveSw.Reset();
                     break;
             }
         }
@@ -161,7 +189,7 @@ namespace Master
             {
                 SendPacket(new Packets.WorkInput(work).ToPacket());
             }
-            catch (Exception e)
+            catch
             {
                 this.workCallback = null;   
                 this.errorCallback = null;

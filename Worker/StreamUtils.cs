@@ -27,14 +27,6 @@ namespace Worker
             return BitConverter.ToInt16(shortBuf, 0);
         }
 
-        public static int ReadInt(Stream stream)
-        {
-            byte[] intBuf = new byte[4];
-            for (int i = 0; i < 4; i++)
-                intBuf[i] = ReadByte(stream);
-            return BitConverter.ToInt32(intBuf, 0);
-        }
-
         public static byte[] ReadBytes(Stream stream, int length)
         {
             byte[] buffer = new byte[length];
@@ -62,22 +54,6 @@ namespace Worker
         public static void WriteShort(Stream stream, short value)
         {
             stream.Write(BitConverter.GetBytes(value), 0, 2);
-        }
-
-        public static void WriteInt(Stream stream, int value)
-        {
-            stream.Write(BitConverter.GetBytes(value), 0, 4);
-        }
-
-        public static byte[] ReadByteArray(Stream stream)
-        {
-            return ReadBytes(stream, ReadInt(stream));
-        }
-
-        public static void WriteByteArray(Stream stream, byte[] data)
-        {
-            WriteInt(stream, data.Length);
-            stream.Write(data, 0, data.Length);
         }
     }
 }

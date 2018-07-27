@@ -72,8 +72,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClientInfo.cs" />
-    <Compile Include="Deque\CollectionHelpers.cs" />
-    <Compile Include="Deque\Deque.cs" />
+    <Compile Include="DataControllers\Deque\CollectionHelpers.cs" />
+    <Compile Include="DataControllers\Deque\Deque.cs" />
+    <Compile Include="DataControllers\SimpleDataController.cs" />
+    <Compile Include="IDataController.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="MasterHandler.cs" />
     <Compile Include="MultiServerClient.cs" />
@@ -87,8 +89,14 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StreamUtils.cs" />
     <Compile Include="IWebsocketPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelAuthPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelInfoPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelRSAKPInfo.cs" />
+    <Compile Include="WebSocketPackets\CPanelTaskInputPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelTaskResultPacket.cs" />
     <Compile Include="WebSocketPackets\GeneralInfoPacket.cs" />
-    <Compile Include="WebSocketPackets\StartWorkerPacket.cs" />
+    <Compile Include="WebSocketPackets\StartCPanelPacket.cs" />
     <Compile Include="WebSocketPackets\WorkerChangedPacket.cs" />
     <Compile Include="Task.cs" />
   </ItemGroup>
