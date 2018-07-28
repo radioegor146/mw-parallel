@@ -30,7 +30,7 @@ All you need is just source files
 3. Third thing is to setup Workers on your PCs
     1. Create a class that inherits interface IMainVoid
     2. Compile Worker
-    3. Make config file for all Workers
+    3. Make config.json file for all Workers
         ```JSON
         {
             "wsaddr": "ws://127.0.0.1:9696",
@@ -42,7 +42,7 @@ All you need is just source files
         **password**: password for Workers to use;  
         **mainvoid**: classname of used class of IMainVoid class  
 4. Run Master and all your Workers
-5. Open CPanel HTML file and edit lines of config:
+5. Open CPanel HTML file and edit these lines of config:
     ```HTML
     ...
     <script>
