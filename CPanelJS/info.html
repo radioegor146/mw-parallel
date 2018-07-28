@@ -17,6 +17,28 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js">
         </script>
         <script>
+            function toUTF8Array(str) {
+                var utf8 = [];
+                for (var i = 0; i < str.length; i++) {
+                    var charcode = str.charCodeAt(i);
+                    if (charcode < 0x80) utf8.push(charcode);
+                    else if (charcode < 0x800) {
+                        utf8.push(0xc0 | (charcode >> 6), 0x80 | (charcode & 0x3f));
+                    } else if (charcode < 0xd800 || charcode >= 0xe000) {
+                        utf8.push(0xe0 | (charcode >> 12), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+                    } else {
+                        i++;
+                        charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
+                        utf8.push(0xf0 | (charcode >> 18), 0x80 | ((charcode >> 12) & 0x3f), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+                    }
+                }
+                var utf8string = "";
+                for (i = 0; i < utf8.length; i++) {
+                    utf8string += String.fromCharCode(utf8[i])
+                }
+                return utf8string;
+            }
+
             function Utf8ArrayToStr(data) {
                 var out = "";
                 var len = data.length;
@@ -88,6 +110,15 @@
                 $('#data-modal').modal('show');
             }
 
+            function showworkerinput(data) {
+                var tdata = data.path[0].dataset;
+                $('#data-title')[0].innerHTML = "Input";
+                $('#utf-8-pre')[0].innerHTML = Utf8ArrayToStr(atob(tdata.input));
+                $('#hex-pre')[0].innerHTML = base64toHEX(tdata.input);
+                $('#c-array-pre')[0].innerHTML = base64toCarray(tdata.input);
+                $('#data-modal').modal('show');
+            }
+
             function showoutput(data) {
                 var tdata = data.path[2].dataset;
                 $('#data-title')[0].innerHTML = "Output for task #" + tdata.id;
@@ -98,7 +129,22 @@
             }
 
             function generateTaskHtml(task) {
-                return '<tr id="task-' + task.task_id + '" data-input="' + task.input_data + '" data-output="' + task.output_data + '" data-id="' + task.task_id + '"><td>' + task.task_id + '</td><td>' + (task.input_data != null ? ('<button class="btn btn-xs btn-success" style="width:100%" onclick="showinput(event)">Input size: ' + atob(task.input_data).length + '</button>') : "") + '</td><td>' + (task.output_data != null ? ('<button class="btn btn-xs btn-danger" style="width:100%" onclick="showoutput(event)">Output size: ' + atob(task.output_data).length + '</button>') : "") + '</td></tr>';
+                return '<tr id="task-' + task.task_id + '" data-input="' + task.input_data + '" data-output="' + task.output_data + '" data-id="' + task.task_id + '"><td>' + task.task_id + '</td><td>' + (task.input_data != null ? ('<button class="btn btn-xs btn-success" style="width:100%" onclick="showinput(event)">Input size: ' + atob(task.input_data).length + '</button>') : "") + '</td><td>' + (task.output_data != null ? ('<button class="btn btn-xs btn-danger" style="width:100%" onclick="showoutput(event)">Output size: ' + atob(task.output_data).length + '</button>') : "") + '</td><td><button class="btn btn-xs btn-danger" style="width:100%" onclick="removetask(event)">Remove task</button></td></tr>';
+            }
+
+            function removetask(event) {
+                var task_id = event.path[2].dataset.id;
+                window.ws.send(JSON.stringify({
+                    type: 4, 
+                    task_id: task_id
+                }));
+            }
+
+            function stopworker(worker_id) {
+                window.ws.send(JSON.stringify({
+                    type: 3, 
+                    worker_id: worker_id
+                }));
             }
 
             function startWS(addr) {
@@ -119,7 +165,7 @@
                         case 0:
                             var tid = '-';
                             if (packetData.current_task != null)
-                                tid = packetData.current_task.task_id;
+                                tid = '<button class="btn btn-xs btn-success" style="width:45%;margin-right:10%" onclick="showworkerinput(event)" data-input="' + packetData.current_task.input_data + '">' + packetData.current_task.task_id + '</button><button class="btn btn-xs btn-danger" style="width:45%" onclick="stopworker(\'' + packetData.worker_id + '\')">Stop</button>';
                             $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.worker_id + '"><td id="system-' + packetData.worker_id + '">' + packetData.worker_system + '</td><td id="state-' + packetData.worker_id + '">' + statuses[packetData.worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.worker_progress * 100) + '%" id="progress-' + packetData.worker_id + '">' + (packetData.worker_status == 3 ? (Math.round(packetData.worker_progress * 100) + '%') : "") + '</div></div></td><td id="tid-' + packetData.worker_id + '">' + tid + '</td></tr>';
                             break;
                         case 1:
@@ -137,7 +183,7 @@
                             for (var i = 0; i < packetData.workers.length; i++) {
                                 var tid = '-';
                                 if (packetData.workers[i].current_task != null)
-                                    tid = packetData.workers[i].current_task.task_id;
+                                    tid = '<button class="btn btn-xs btn-success" style="width:45%;margin-right:10%" onclick="showworkerinput(event)" data-input="' + packetData.workers[i].current_task.input_data + '">' + packetData.workers[i].current_task.task_id + '</button><button style="width:45%" class="btn btn-xs btn-danger" onclick="stopworker(\'' + packetData.workers[i].worker_id + '\')">Stop</button>';
                                 $('#workers-table')[0].innerHTML += '<tr id="worker-' + packetData.workers[i].worker_id + '"><td id="system-' + packetData.workers[i].worker_id + '">' + packetData.workers[i].worker_system + '</td><td id="state-' + packetData.workers[i].worker_id + '">' + statuses[packetData.workers[i].worker_status] + '</td><td><div class="progress"><div aria-valuemax="100" aria-valuemin="0" aria-valuenow="40" class="progress-bar progress-bar-striped active" role="progressbar" style="width:' + (packetData.workers[i].worker_progress * 100) + '%" id="progress-' + packetData.workers[i].worker_id + '">' + (packetData.workers[i].worker_status == 3 ? (Math.round(packetData.workers[i].worker_progress * 100) + '%') : "") + '</div></div></td><td id="tid-' + packetData.workers[i].worker_id + '">' + tid + '</td></tr>';
                             }
                             $('#tasks-in-queue-table')[0].innerHTML = '';
@@ -162,7 +208,7 @@
                                 case 2:
                                     if ($('#task-' + packetData.task.task_id)[0] != undefined)
                                         $('#task-' + packetData.task.task_id)[0].remove();
-                                    $('#tid-' + packetData.task.worker_id)[0].innerHTML = packetData.task.task_id;
+                                    $('#tid-' + packetData.task.worker_id)[0].innerHTML = '<button class="btn btn-xs btn-success" style="width:45%;margin-right:10%" onclick="showworkerinput(event)" data-input="' + packetData.task.input_data + '">' + packetData.task.task_id + '</button><button class="btn btn-xs btn-danger" style="width:45%" onclick="stopworker(\'' + packetData.task.worker_id + '\')">Stop</button>';
                                     break;
                                 case 3:
                                     if ($('#task-' + packetData.task.task_id)[0] != undefined)
@@ -172,6 +218,13 @@
                                         icon: 'https://image.freepik.com/free-icon/tasks_318-30808.jpg',
                                         body: "Task #" + packetData.task.task_id + " is ready!",
                                     });
+                                    $('#tid-' + packetData.task.worker_id)[0].innerHTML = '-';
+                                    break;
+                                case 4:
+                                    if ($('#task-' + packetData.task.task_id)[0] != undefined)
+                                        $('#task-' + packetData.task.task_id)[0].remove();
+                                    break;
+                                case 5:
                                     $('#tid-' + packetData.task.worker_id)[0].innerHTML = '-';
                                     break;
                             }
@@ -212,10 +265,12 @@
             }
 
             function task() {
-                window.ws.send(JSON.stringify({
-                    type: 2, 
-                    data: btoa(window.prompt("Enter data for input of task", ""))
-                }));
+                var data = window.prompt("Enter data for input of task", "");
+                if (data != null)
+                    window.ws.send(JSON.stringify({
+                        type: 2, 
+                        data: btoa(toUTF8Array(data))
+                    }));
             }
 
             Notification.requestPermission().then(function(result) {
@@ -294,7 +349,7 @@
                                     </th>
                                     <th>
                                     </th>
-                                    <th width="10%">
+                                    <th width="20%">
                                         Task ID
                                     </th>
                                 </tr>
@@ -315,14 +370,17 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th width="20%">
+                                        <th width="10%">
                                             ID
                                         </th>
-                                        <th width="40%">
+                                        <th width="30%">
                                             Input
                                         </th>
-                                        <th width="40%">
+                                        <th width="30%">
                                             Output
+                                        </th>
+                                        <th width="30%">
+                                            
                                         </th>
                                     </tr>
                                 </thead>
@@ -341,14 +399,17 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th width="20%">
+                                        <th width="10%">
                                             ID
                                         </th>
-                                        <th width="40%">
+                                        <th width="30%">
                                             Input
                                         </th>
-                                        <th width="40%">
+                                        <th width="30%">
                                             Output
+                                        </th>
+                                        <th width="30%">
+                                            
                                         </th>
                                     </tr>
                                 </thead>
@@ -390,15 +451,15 @@
                         </ul>
                         <div class="tab-content">
                             <div class="tab-pane active" id="utf-8-view">
-                                <pre id="utf-8-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd
+                                <pre id="utf-8-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">
                                 </pre>
                             </div>
                             <div class="tab-pane" id="hex-view">
-                                <pre id="hex-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd1
+                                <pre id="hex-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">
                                 </pre>
                             </div>
                             <div class="tab-pane" id="c-array-view">
-                                <pre id="c-array-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">asdasd2
+                                <pre id="c-array-pre" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0;">
                                 </pre>
                             </div>
                         </div>

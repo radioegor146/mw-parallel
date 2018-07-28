@@ -34,6 +34,8 @@ namespace Master.WebSocketPackets
         AddedToEnd,
         AddedToStart,
         WorkerSet,
-        TaskReady
+        TaskReady,
+        TaskRemoved,
+        TaskCanceled
     }
 }

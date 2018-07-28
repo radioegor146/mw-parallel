@@ -20,11 +20,12 @@ namespace Worker
         private FileStream fileStream;
         private StreamWriter mainWriter;
 
-        public Logger(string filename, LogLevel level = LogLevel.Log)
+        public Logger(string filename, LogLevel level = LogLevel.Log, bool writeToFile = false)
         {
             this.level = level;
-            return;
             if (level == LogLevel.None)
+                return;
+            if (!writeToFile)
                 return;
             int logid = 0;
             try

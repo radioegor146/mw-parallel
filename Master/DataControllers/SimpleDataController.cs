@@ -17,7 +17,7 @@ namespace Master.DataControllers
 
         private ConcurrentDictionary<string, Task> currentTasks = new ConcurrentDictionary<string, Task>();
 
-        private ConcurrentQueue<Task> readyTasks = new ConcurrentQueue<Task>();
+        private List<Task> readyTasks = new List<Task>();
 
         private Dictionary<string, PermissionLevel> perms = new Dictionary<string, PermissionLevel>();
 
@@ -45,12 +45,14 @@ namespace Master.DataControllers
 
         public void ReadyTasksAdd(Task task)
         {
-            readyTasks.Enqueue(task);
+            lock (readyTasks)
+                readyTasks.Add(task);
         }
 
         public Task[] ReadyTasksGetAll()
         {
-            return readyTasks.ToArray();
+            lock (readyTasks)
+                return readyTasks.ToArray();
         }
 
         public void TaskQueueAddBack(Task task)
@@ -90,6 +92,24 @@ namespace Master.DataControllers
                     return perms[code];
                 else
                     return PermissionLevel.None;
+        }
+
+        public void TaskQueueRemove(int taskId)
+        {
+            lock (tasksInQueue)
+                tasksInQueue.Remove(new Task()
+                {
+                    Id = taskId
+                });
+        }
+
+        public void ReadyTasksRemove(int taskId)
+        {
+            lock (readyTasks)
+                readyTasks.Remove(new Task()
+                {
+                    Id = taskId
+                });
         }
     }
 }

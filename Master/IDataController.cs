@@ -13,12 +13,14 @@ namespace Master
         void TaskQueueAddBack(Task task);
         void TaskQueueAddFront(Task task);
         Task TaskQueuePopFront();
+        void TaskQueueRemove(int taskId);
 
         Task CurrentTasksGetByKey(string key);
         void CurrentTasksSetByKey(string key, Task newTask);
 
         Task[] ReadyTasksGetAll();
         void ReadyTasksAdd(Task task);
+        void ReadyTasksRemove(int taskId);
 
         PermissionLevel GetPermissionByCode(string code);
 

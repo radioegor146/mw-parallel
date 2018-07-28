@@ -24,6 +24,8 @@ namespace Master.WebSocketPackets
     {
         Nop,
         AuthRequest,
-        NewTask
+        NewTask,
+        AbortWorker,
+        RemoveTask
     }
 }

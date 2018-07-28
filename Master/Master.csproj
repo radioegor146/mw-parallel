@@ -79,7 +79,8 @@
     <Compile Include="Logger.cs" />
     <Compile Include="MasterHandler.cs" />
     <Compile Include="MultiServerClient.cs" />
-    <Compile Include="Packet.cs" />
+    <Compile Include="SimplePacket.cs" />
+    <Compile Include="Packets\Signal.cs" />
     <Compile Include="Packets\WorkerAuthRequest.cs" />
     <Compile Include="Packets\WorkerAuthResponse.cs" />
     <Compile Include="Packets\WorkerInfo.cs" />
@@ -89,9 +90,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StreamUtils.cs" />
     <Compile Include="IWebsocketPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelAbortWorker.cs" />
     <Compile Include="WebSocketPackets\CPanelAuthPacket.cs" />
     <Compile Include="WebSocketPackets\CPanelInfoPacket.cs" />
     <Compile Include="WebSocketPackets\CPanelPacket.cs" />
+    <Compile Include="WebSocketPackets\CPanelRemoveTask.cs" />
     <Compile Include="WebSocketPackets\CPanelRSAKPInfo.cs" />
     <Compile Include="WebSocketPackets\CPanelTaskInputPacket.cs" />
     <Compile Include="WebSocketPackets\CPanelTaskResultPacket.cs" />

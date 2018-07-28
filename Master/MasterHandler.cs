@@ -140,6 +140,36 @@ namespace Master
                             SendTask(inputPacket.Data);
                         }
                         break;
+                    case WebSocketPackets.CPanelPacketType.AbortWorker:
+                        WebSocketPackets.CPanelAbortWorker tPacket = new WebSocketPackets.CPanelAbortWorker();
+                        tPacket.DeserializeJson(packet.JsonData);
+                        if (!workers.ContainsKey(tPacket.WorkerId))
+                            break;
+                        workers[tPacket.WorkerId].SendPacket(new Packets.Signal()
+                        {
+                            Data = new byte[0],
+                            Type = Packets.SignalEnum.Abort
+                        }.GetPacket());
+                        break;
+                    case WebSocketPackets.CPanelPacketType.RemoveTask:
+                        WebSocketPackets.CPanelRemoveTask removeTaskPacket = new WebSocketPackets.CPanelRemoveTask();
+                        removeTaskPacket.DeserializeJson(packet.JsonData);
+                        dataController.ReadyTasksRemove(removeTaskPacket.TaskId);
+                        dataController.TaskQueueRemove(removeTaskPacket.TaskId);
+                        SendToWebSocket(new WebSocketPackets.CPanelTaskChanged()
+                        {
+                            TaskEventType = WebSocketPackets.TaskEventType.TaskRemoved,
+                            Task = new WebSocketPackets.TaskInfo(new Task()
+                            {
+                                Id = removeTaskPacket.TaskId
+                            }, WebSocketPackets.TaskStatus.Processing)
+                        });
+                        SendToWebSocket(new WebSocketPackets.GeneralInfoPacket()
+                        {
+                            TasksCount = dataController.TaskQueueGetCount(),
+                            WorkerCount = workers.Count
+                        });
+                        break;
                 }
             }
             catch (Exception e)
@@ -332,17 +362,30 @@ namespace Master
                         workers[workerId].Status = ClientWorkerStatus.None;
                     }, (x) =>
                     {
-                        SendToWebSocket(new WebSocketPackets.CPanelTaskChanged()
+                        Logger.Log($"Got error on task executing: {x}");
+                        if (x != ErrorType.TaskAbort)
                         {
-                            Task = new WebSocketPackets.TaskInfo(dataController.CurrentTasksGetByKey(workerId), WebSocketPackets.TaskStatus.InQueue),
-                            TaskEventType = WebSocketPackets.TaskEventType.AddedToStart
-                        });
-                        dataController.TaskQueueAddFront(dataController.CurrentTasksGetByKey(workerId));
+                            SendToWebSocket(new WebSocketPackets.CPanelTaskChanged()
+                            {
+                                Task = new WebSocketPackets.TaskInfo(dataController.CurrentTasksGetByKey(workerId), WebSocketPackets.TaskStatus.InQueue),
+                                TaskEventType = WebSocketPackets.TaskEventType.AddedToStart
+                            });
+                            dataController.TaskQueueAddFront(dataController.CurrentTasksGetByKey(workerId));
+                        }
                         dataController.CurrentTasksSetByKey(workerId, null);
+                        workers[workerId].Status = ClientWorkerStatus.None;
                         SendToWebSocket(new WebSocketPackets.GeneralInfoPacket()
                         {
                             TasksCount = dataController.TaskQueueGetCount(),
                             WorkerCount = workers.Count
+                        });
+                        SendToWebSocket(new WebSocketPackets.CPanelTaskChanged()
+                        {
+                            TaskEventType = WebSocketPackets.TaskEventType.TaskCanceled,
+                            Task = new WebSocketPackets.TaskInfo(new Task()
+                            {
+                                WorkerId = workerId
+                            }, WebSocketPackets.TaskStatus.Ready)
                         });
                     }, (x) =>
                     {

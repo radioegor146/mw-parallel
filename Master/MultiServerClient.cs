@@ -116,6 +116,20 @@ namespace Master
                     }
                     status = ClientWorkerStatus.None;
                     break;
+
+                case PacketType.Signal:
+                    Packets.Signal signal = new Packets.Signal(packet);
+                    if (signal.Type == Packets.SignalEnum.Abort)
+                    {
+                        if (status != ClientWorkerStatus.Working)
+                            return;
+                        LastProgress = 0;
+                        errorCallback?.Invoke(ErrorType.TaskAbort);
+                        errorCallback = null;
+                        progressChangeCallback = null;
+                        workCallback = null;
+                    }
+                    break;
             }
         }
 
@@ -227,6 +241,7 @@ namespace Master
     {
         SendError,
         WorkerDisconnectedError,
-        WorkerError
+        WorkerError,
+        TaskAbort
     }
 }

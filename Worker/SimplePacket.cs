@@ -29,6 +29,7 @@ namespace Worker
         WorkOutput,
         WorkerInfo,
         WorkerAuthRequest,
-        WorkerAuthResponse
+        WorkerAuthResponse,
+        Signal
     }
 }

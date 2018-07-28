@@ -187,7 +187,7 @@ namespace Worker
             {
                 Logger.Log("Aborting main thread");
                 workerThread.Abort();
-                while (!(workerThread.ThreadState == System.Threading.ThreadState.Stopped || workerThread.ThreadState == System.Threading.ThreadState.Unstarted || workerThread.ThreadState == System.Threading.ThreadState.Aborted) ) { Thread.Sleep(1001); Console.WriteLine(workerThread.ThreadState); }
+                while (!(workerThread.ThreadState == System.Threading.ThreadState.Stopped || workerThread.ThreadState == System.Threading.ThreadState.Unstarted || workerThread.ThreadState == System.Threading.ThreadState.Aborted) ) { Thread.Sleep(1); }
             }
             catch
             {
@@ -243,6 +243,23 @@ namespace Worker
                         Status = Status,
                         System = Platform
                     }.GetPacket());
+                    break;
+                case PacketType.Signal:
+                    Packets.Signal signal = new Packets.Signal(packet);
+                    switch (signal.Type)
+                    {
+                        case Packets.SignalEnum.Abort:
+                            workerThread.Abort();
+                            while (!(workerThread.ThreadState == System.Threading.ThreadState.Stopped || workerThread.ThreadState == System.Threading.ThreadState.Unstarted || workerThread.ThreadState == System.Threading.ThreadState.Aborted)) { Thread.Sleep(1); }
+                            Logger.Log("Aborted");
+                            clientSocket.Send(new Packets.Signal()
+                            {
+                                Data = new byte[0],
+                                Type = Packets.SignalEnum.Abort
+                            }.GetPacket().GetBytes());
+                            Status = Packets.WorkerStatus.None;
+                            break;
+                    }
                     break;
             }
             return;

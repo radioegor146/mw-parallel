@@ -13,7 +13,7 @@ namespace Worker.Packets
 
         public WorkerAuthRequest()
         {
-            RandomBytes = new byte[16];
+            RandomBytes = new byte[16]; 
             RandomNumberGenerator.Create().GetBytes(RandomBytes);
         }
 
