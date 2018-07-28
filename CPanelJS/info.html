@@ -17,6 +17,39 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js">
         </script>
         <script>
+            function Utf8ArrayToStr(data) {
+                var out = "";
+                var len = data.length;
+                var i = 0;
+                while (i < len) {
+                    var c = data.charCodeAt(i++);
+                    switch (c >> 4) {
+                        case 0:
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                        case 7:
+                            out += String.fromCharCode(c);
+                            break;
+                        case 12:
+                        case 13:
+                            char2 = data.charCodeAt(i++);
+                            out += String.fromCharCode(((c & 0x1F) << 6) | (char2 & 0x3F));
+                            break;
+                        case 14:
+                            char2 = data.charCodeAt(i++);
+                            char3 = data.charCodeAt(i++);
+                            out += String.fromCharCode(((c & 0x0F) << 12) | ((char2 & 0x3F) << 6) | ((char3 & 0x3F) << 0));
+                            break;
+                    }
+                }
+                return out;
+            }
+
+
             function setState(state, text) {
                 $('#msg')[0].className = "alert alert-" + state;
                 $('#msg')[0].innerHTML = "<b>" + text + "</b>";
@@ -49,7 +82,7 @@
             function showinput(data) {
                 var tdata = data.path[2].dataset;
                 $('#data-title')[0].innerHTML = "Input for task #" + tdata.id;
-                $('#utf-8-pre')[0].innerHTML = atob(tdata.input);
+                $('#utf-8-pre')[0].innerHTML = Utf8ArrayToStr(atob(tdata.input));
                 $('#hex-pre')[0].innerHTML = base64toHEX(tdata.input);
                 $('#c-array-pre')[0].innerHTML = base64toCarray(tdata.input);
                 $('#data-modal').modal('show');
@@ -58,7 +91,7 @@
             function showoutput(data) {
                 var tdata = data.path[2].dataset;
                 $('#data-title')[0].innerHTML = "Output for task #" + tdata.id;
-                $('#utf-8-pre')[0].innerHTML = atob(tdata.output);
+                $('#utf-8-pre')[0].innerHTML = Utf8ArrayToStr(atob(tdata.output));
                 $('#hex-pre')[0].innerHTML = base64toHEX(tdata.output);
                 $('#c-array-pre')[0].innerHTML = base64toCarray(tdata.output);
                 $('#data-modal').modal('show');

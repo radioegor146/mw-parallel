@@ -92,12 +92,28 @@ namespace Worker
             }
             catch (Exception e)
             {
-                clientSocket.Send(new SimplePacket()
+                if (e is ThreadAbortException)
                 {
-                    Type = PacketType.WorkOutput,
-                    Data = Encoding.UTF8.GetBytes($"Exception: {e}")
-                }.GetBytes());
+                    Logger.Log($"Thread aborted: {e.Message}");
+                }
+                else
+                {
+                    try
+                    {
+                        if (clientSocket.IsAlive)
+                            clientSocket.Send(new SimplePacket()
+                            {
+                                Type = PacketType.WorkOutput,
+                                Data = Encoding.UTF8.GetBytes($"Exception: {e}")
+                            }.GetBytes());
+                    }
+                    catch
+                    {
+                        Logger.Log($"Nice error: {e}");
+                    }
+                }
             }
+            Status = Packets.WorkerStatus.None;
             logger.Debug("End working");
         }
 
@@ -121,6 +137,7 @@ namespace Worker
 
         private void ClientSocket_OnOpen(object sender, EventArgs e)
         {
+            Logger.Log("Connected");
             keepAliveSw = new Stopwatch();
             keepAliveTimer = new Timer(x =>
             {
@@ -155,7 +172,7 @@ namespace Worker
                         }.GetBytes());
                 }
                 previousState = nowState;
-            }, null, 0, 500);
+            }, null, 500, 500);
         }
 
         private void ClientSocket_OnError(object sender, WebSocketSharp.ErrorEventArgs e)
@@ -166,6 +183,19 @@ namespace Worker
         private void ClientSocket_OnClose(object sender, CloseEventArgs e)
         {
             Logger.Log("Socket closed");
+            try
+            {
+                Logger.Log("Aborting main thread");
+                workerThread.Abort();
+                while (!(workerThread.ThreadState == System.Threading.ThreadState.Stopped || workerThread.ThreadState == System.Threading.ThreadState.Unstarted || workerThread.ThreadState == System.Threading.ThreadState.Aborted) ) { Thread.Sleep(1001); Console.WriteLine(workerThread.ThreadState); }
+            }
+            catch
+            {
+                Logger.Log("Thread is not working");
+            }
+            Logger.Log("Thread stopped");
+            previousState = false;
+            Status = Packets.WorkerStatus.None;
             Timer reconnectTimer = new Timer((x) =>
             {
                 Logger.Log("Trying to reconnect");
@@ -187,6 +217,7 @@ namespace Worker
                 case PacketType.WorkInput:
                     if (Status != Packets.WorkerStatus.None)
                     {
+                        Logger.Log("Bad state");
                         clientSocket.Close();
                         return;
                     }
