@@ -27,8 +27,6 @@ namespace Master
         private JObject config;
 
         private Logger logger;
-
-        private RSA rsa;
         public Logger Logger
         {
             get
@@ -42,9 +40,6 @@ namespace Master
         public MasterHandler(JObject config)
         {
             Logger.Log("App started");
-            Logger.Log("Generating RSA keypair");
-            rsa = RSA.Create();
-            Logger.Log("Generated RSA keypair");
             this.config = config;
             try
             {
@@ -82,19 +77,18 @@ namespace Master
             {
                 if (value.Length > 16384)
                     return;
-                WebSocketPackets.CPanelPacket packet = new WebSocketPackets.CPanelPacket();
+                WebSocketPackets.Packet packet = new WebSocketPackets.Packet();
                 packet.DeserializeJson(value);
                 switch (packet.PacketType)
                 {
-                    case WebSocketPackets.CPanelPacketType.AuthRequest:
-                        WebSocketPackets.CPanelAuthPacket authPacket = new WebSocketPackets.CPanelAuthPacket();
+                    case WebSocketPackets.ControlPacketType.AuthRequest:
+                        WebSocketPackets.AuthPacket authPacket = new WebSocketPackets.AuthPacket();
                         authPacket.DeserializeJson(packet.JsonData);
-                        byte[] data = rsa.DecryptValue(authPacket.PasswordData);
                         PermissionLevel level, newLevel;
-                        newLevel = dataController.GetPermissionByCode(Encoding.UTF8.GetString(data, 8, data.Length - 8));
+                        newLevel = dataController.GetPermissionByCode(Encoding.UTF8.GetString(authPacket.PasswordData));
                         if (newLevel == PermissionLevel.WrongPassword)
                         {
-                            session.Send(new WebSocketPackets.CPanelInfoPacket()
+                            session.Send(new WebSocketPackets.InfoPacket()
                             {
                                 Level = newLevel
                             }.SerializeJson());
@@ -103,7 +97,7 @@ namespace Master
                         {
                             while (!clients.TryRemove(session.SessionID, out level)) { Thread.Sleep(1); }
                             while (!clients.TryAdd(session.SessionID, newLevel)) { Thread.Sleep(1); }
-                            session.Send(new WebSocketPackets.CPanelInfoPacket()
+                            session.Send(new WebSocketPackets.InfoPacket()
                             {
                                 Level = newLevel
                             }.SerializeJson());
@@ -130,18 +124,18 @@ namespace Master
                             }
                         }
                         break;
-                    case WebSocketPackets.CPanelPacketType.NewTask:
+                    case WebSocketPackets.ControlPacketType.NewTask:
                         if (clients[session.SessionID] >= PermissionLevel.CreateTasks)
                         {
-                            WebSocketPackets.CPanelTaskInputPacket inputPacket = new WebSocketPackets.CPanelTaskInputPacket();
+                            WebSocketPackets.TaskInputPacket inputPacket = new WebSocketPackets.TaskInputPacket();
                             inputPacket.DeserializeJson(packet.JsonData);
                             if (inputPacket.Data.Length > 65536)
                                 break;
                             SendTask(inputPacket.Data);
                         }
                         break;
-                    case WebSocketPackets.CPanelPacketType.AbortWorker:
-                        WebSocketPackets.CPanelAbortWorker tPacket = new WebSocketPackets.CPanelAbortWorker();
+                    case WebSocketPackets.ControlPacketType.AbortWorker:
+                        WebSocketPackets.AbortWorkerPacket tPacket = new WebSocketPackets.AbortWorkerPacket();
                         tPacket.DeserializeJson(packet.JsonData);
                         if (!workers.ContainsKey(tPacket.WorkerId))
                             break;
@@ -151,8 +145,8 @@ namespace Master
                             Type = Packets.SignalEnum.Abort
                         }.GetPacket());
                         break;
-                    case WebSocketPackets.CPanelPacketType.RemoveTask:
-                        WebSocketPackets.CPanelRemoveTask removeTaskPacket = new WebSocketPackets.CPanelRemoveTask();
+                    case WebSocketPackets.ControlPacketType.RemoveTask:
+                        WebSocketPackets.RemoveTask removeTaskPacket = new WebSocketPackets.RemoveTask();
                         removeTaskPacket.DeserializeJson(packet.JsonData);
                         dataController.ReadyTasksRemove(removeTaskPacket.TaskId);
                         dataController.TaskQueueRemove(removeTaskPacket.TaskId);
@@ -182,12 +176,7 @@ namespace Master
         {
             PermissionLevel defaultPermission = (PermissionLevel)config["defaultpermission"].Value<int>();
             while (!clients.TryAdd(session.SessionID, (PermissionLevel)config["defaultpermission"].Value<int>())) { Thread.Sleep(1); }
-            session.Send(new WebSocketPackets.CPanelRSAKPInfo()
-            {
-                Exponent = rsa.ExportParameters(false).Exponent,
-                Modulus = rsa.ExportParameters(false).Modulus
-            }.SerializeJson());
-            session.Send(new WebSocketPackets.CPanelInfoPacket()
+            session.Send(new WebSocketPackets.InfoPacket()
             {
                 Level = defaultPermission
             }.SerializeJson());
@@ -245,9 +234,6 @@ namespace Master
                 TasksCount = dataController.TaskQueueGetCount(),
                 WorkerCount = workers.Count
             });
-            Packets.WorkerAuthRequest request = new Packets.WorkerAuthRequest();
-            client.RandomBytes = request.RandomBytes;
-            client.SendPacket(request.GetPacket());
             Logger.Debug($"Client {session.SessionID} connected from IP:Port: {session.RemoteEndPoint}");
         }
 
@@ -378,7 +364,7 @@ namespace Master
                         {
                             TasksCount = dataController.TaskQueueGetCount(),
                             WorkerCount = workers.Count
-                        });
+                        }); 
                         SendToWebSocket(new WebSocketPackets.CPanelTaskChanged()
                         {
                             TaskEventType = WebSocketPackets.TaskEventType.TaskCanceled,
@@ -449,7 +435,9 @@ namespace Master
         {
             lock (webSocketServer)
                 foreach (var session in webSocketServer.GetAllSessions())
-                   session.Send(packet.SerializeJson());
+                {
+                    session.Send(packet.SerializeJson());
+                }
         }
     }
 }

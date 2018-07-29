@@ -7,13 +7,13 @@ using Newtonsoft.Json.Linq;
 
 namespace Master.WebSocketPackets
 {
-    class CPanelRemoveTask
+    class AuthPacket
     {
-        public int TaskId;
+        public byte[] PasswordData;
 
         public void DeserializeJson(string json)
         {
-            TaskId = JObject.Parse(json)["task_id"].Value<int>();
+            PasswordData = JObject.Parse(json)["password"].Value<byte[]>();
         }
     }
 }

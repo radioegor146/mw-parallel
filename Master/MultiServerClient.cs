@@ -94,7 +94,7 @@ namespace Master
                     }
                     break;
 
-                case PacketType.WorkOutput:
+                case PacketType.TaskOutput:
                     if (status != ClientWorkerStatus.Working)
                         return;
                     LastProgress = 0;
@@ -104,11 +104,11 @@ namespace Master
                     workCallback = null;
                     break;
 
-                case PacketType.WorkerAuthResponse:
+                case PacketType.WorkerAuth:
                     if (status != ClientWorkerStatus.Connecting)
                         return;
-                    Packets.WorkerAuthResponse response = new Packets.WorkerAuthResponse(packet);
-                    if (!response.CheckPassword(RandomBytes, this.info.Config["password"].Value<string>()))
+                    Packets.WorkerAuth response = new Packets.WorkerAuth(packet);
+                    if (!response.CheckPassword(Encoding.UTF8.GetBytes(this.info.Config["password"].Value<string>())))
                     {
                         handler.RemoveClient(session.SessionID);
                         session.Close();
@@ -203,7 +203,7 @@ namespace Master
             this.progressChangeCallback = progressChangeCallback;
             try
             {
-                SendPacket(new Packets.WorkInput(work).ToPacket());
+                SendPacket(new Packets.TaskInput(work).ToPacket());
             }
             catch
             {

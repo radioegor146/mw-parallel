@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace Master.WebSocketPackets
 {
-    class CPanelInfoPacket : IWebSocketPacket
+    class InfoPacket : IWebSocketPacket
     {
         [JsonProperty(PropertyName = "event")]
         public EventType EventType = EventType.CPanelInfo;
@@ -15,7 +15,7 @@ namespace Master.WebSocketPackets
         [JsonProperty(PropertyName = "permission_level")]
         public PermissionLevel Level = PermissionLevel.None;
 
-        public CPanelInfoPacket() { }
+        public InfoPacket() { }
 
         public void DeserializeJson(string json)
         {

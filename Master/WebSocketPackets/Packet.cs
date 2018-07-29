@@ -7,20 +7,20 @@ using Newtonsoft.Json.Linq;
 
 namespace Master.WebSocketPackets
 {
-    class CPanelPacket
+    class Packet
     {
-        public CPanelPacketType PacketType;
+        public ControlPacketType PacketType;
 
         public string JsonData;
 
         public void DeserializeJson(string json)
         {
             JsonData = json;
-            PacketType = (CPanelPacketType)JObject.Parse(json)["type"].Value<int>();
+            PacketType = (ControlPacketType)JObject.Parse(json)["type"].Value<int>();
         }
     }
 
-    enum CPanelPacketType
+    enum ControlPacketType
     {
         Nop,
         AuthRequest,

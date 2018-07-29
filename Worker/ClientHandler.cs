@@ -61,7 +61,7 @@ namespace Worker
             {
                 byte[] dataBytes = new SimplePacket()
                 {
-                    Type = PacketType.WorkOutput,
+                    Type = PacketType.TaskOutput,
                     Data = mainVoid.DoIt(input, (x) =>
                     {
                         try
@@ -103,7 +103,7 @@ namespace Worker
                         if (clientSocket.IsAlive)
                             clientSocket.Send(new SimplePacket()
                             {
-                                Type = PacketType.WorkOutput,
+                                Type = PacketType.TaskOutput,
                                 Data = Encoding.UTF8.GetBytes($"Exception: {e}")
                             }.GetBytes());
                     }
@@ -173,6 +173,16 @@ namespace Worker
                 }
                 previousState = nowState;
             }, null, 500, 500);
+            clientSocket.Send(new Packets.WorkerAuth()
+            {
+                Password = Encoding.UTF8.GetBytes(config["password"].Value<string>()),
+            }.GetPacket());
+            clientSocket.Send(new Packets.WorkerInfo()
+            {
+                OkPart = 0,
+                Status = Status,
+                System = Platform
+            }.GetPacket());
         }
 
         private void ClientSocket_OnError(object sender, WebSocketSharp.ErrorEventArgs e)
@@ -214,7 +224,7 @@ namespace Worker
                     keepAliveSw.Restart();
             switch (packet.Type)
             {
-                case PacketType.WorkInput:
+                case PacketType.TaskInput:
                     if (Status != Packets.WorkerStatus.None)
                     {
                         Logger.Log("Bad state");
@@ -229,20 +239,6 @@ namespace Worker
                     }.GetPacket());
                     Status = Packets.WorkerStatus.Working;
                     StartProcessing(packet.Data);
-                    break;
-                case PacketType.WorkerAuthRequest:
-                    Packets.WorkerAuthResponse response = new Packets.WorkerAuthResponse();
-                    clientSocket.Send(new Packets.WorkerAuthResponse()
-                    {  
-                        Password = config["password"].Value<string>(),
-                        RandomBytes = packet.Data
-                    }.GetPacket());
-                    clientSocket.Send(new Packets.WorkerInfo()
-                    {
-                        OkPart = 0,
-                        Status = Status,
-                        System = Platform
-                    }.GetPacket());
                     break;
                 case PacketType.Signal:
                     Packets.Signal signal = new Packets.Signal(packet);

@@ -25,11 +25,10 @@ namespace Worker
     enum PacketType : short
     {
         Nop,
-        WorkInput,
-        WorkOutput,
+        TaskInput,
+        TaskOutput,
         WorkerInfo,
-        WorkerAuthRequest,
-        WorkerAuthResponse,
+        WorkerAuth,
         Signal
     }
 }

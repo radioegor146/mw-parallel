@@ -55,11 +55,11 @@
     <Compile Include="ClientHandler.cs" />
     <Compile Include="IMainVoid.cs" />
     <Compile Include="Logger.cs" />
-    <Compile Include="Packets\WorkerAuthRequest.cs" />
-    <Compile Include="Packets\WorkerAuthResponse.cs" />
+    <Compile Include="Packets\Signal.cs" />
+    <Compile Include="Packets\WorkerAuth.cs" />
     <Compile Include="Packets\WorkerInfo.cs" />
-    <Compile Include="Packets\WorkInput.cs" />
-    <Compile Include="Packets\WorkOutput.cs" />
+    <Compile Include="Packets\TaskInput.cs" />
+    <Compile Include="Packets\TaskOutput.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SimplePacket.cs" />
